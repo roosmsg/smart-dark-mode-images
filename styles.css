@@ -1,0 +1,36 @@
+/* Smart Dark Mode Images
+ *
+ * All effects are live CSS filters applied at render time while
+ * body.theme-dark is present (the class Obsidian toggles from its
+ * Appearance setting). Image files are never modified or duplicated.
+ *
+ * --dmi-strength is the inversion strength in percent; by default the
+ * plugin derives it from the theme background so that inverted white
+ * lands on the page color instead of pure black.
+ */
+
+/* Plain inversion (colors flip to their complements). */
+body.theme-dark.dmi-on img[data-dmi="invert"] {
+  filter: invert(calc(var(--dmi-strength, 90) * 1%));
+}
+
+/* Hue-preserving path: #dmi-invert-nhue flips luminance while keeping hue.
+ * The trailing weak invert() lifts black onto the theme background:
+ * invert(k) maps 0 -> k and 1 -> 1-k. */
+body.theme-dark.dmi-on.dmi-hue img[data-dmi="invert"] {
+  filter: url(#dmi-invert-nhue)
+    invert(calc((100 - var(--dmi-strength, 90)) * 1%));
+}
+
+/* Soft highlight cap for bright images kept by smart detection or by a
+ * no-invert override alt. A no-dim override stamps "keep" instead. */
+body.theme-dark.dmi-on img[data-dmi="dim"] {
+  filter: brightness(calc(var(--dmi-dim, 100) * 1%));
+}
+
+/* Never let inversion leak into print / PDF export. */
+@media print {
+  img[data-dmi] {
+    filter: none !important;
+  }
+}

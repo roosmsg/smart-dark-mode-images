@@ -1,0 +1,9 @@
+{
+  "id": "smart-dark-mode-images",
+  "name": "Smart Dark Mode Images",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Automatically adapts bright images when Obsidian is in dark mode while leaving images that already look right untouched — no image files are modified or duplicated.",
+  "author": "roosmsg",
+  "isDesktopOnly": false
+}

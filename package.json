@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-dark-mode-images",
+  "version": "0.1.0",
+  "description": "Inverts images when Obsidian is in dark mode, with smart per-image detection that keeps photos intact.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "dark-mode",
+    "images"
+  ],
+  "author": "Djinx",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "latest",
+    "tslib": "^2.6.0",
+    "typescript": "^5.5.0"
+  }
+}
