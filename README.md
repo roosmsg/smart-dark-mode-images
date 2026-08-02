@@ -2,45 +2,45 @@
 
 # Smart Dark Mode Images
 
-**Automatically adapt bright images to dark mode—without changing images that already look right.**
+**Automatically adapt images to dark mode—without re-inverting images that are already dark.**
 
 [![Obsidian 1.4.0+](https://img.shields.io/badge/Obsidian-1.4.0%2B-7C3AED?logo=obsidian&logoColor=white)](https://obsidian.md/)
 [![Version 0.1.0](https://img.shields.io/badge/version-0.1.0-2563EB)](manifest.json)
 [![Desktop and mobile](https://img.shields.io/badge/platform-desktop%20%7C%20mobile-0F766E)](#installation)
 [![MIT License](https://img.shields.io/badge/license-MIT-EAB308)](LICENSE)
 
-The smart classifier decides what to do **for each image individually**. Bright images are adapted to your dark theme, already-dark images remain completely untouched, and images that should not be inverted keep their natural colors.
+Smart Dark Mode Images applies a color-preserving luminance flip by default, then uses a tiny per-image sample to exempt images that already fit a dark theme.
 
 </div>
 
 > [!IMPORTANT]
-> **Your image files are never modified.** Inversion is a live visual filter. The classifier only samples a tiny in-memory preview and keeps the resulting decision—no altered copies are written to disk.
+> **Your image files are never modified.** Adaptation is a live visual filter. The plugin samples at most a 64 × 64 in-memory preview and stores only the resulting decision—no altered image copies are written to your vault.
 
-## One vault, different images, the right decision
+## How it behaves
 
-Unlike a blanket CSS filter, Smart Dark Mode Images analyzes every image separately. You get comfortable light-background images without darkening images that already match your theme.
-
-| Adapts for dark mode | Keeps uninverted |
+| Image | Smart mode |
 | --- | --- |
-| Bright, light-background images | Mostly opaque, already-dark images |
-| Dark content on a transparent background | Images with rich natural colors |
-| Images confidently identified as needing adjustment | Anything the classifier is unsure about |
+| Mostly opaque and already dark | **Keep uninverted** |
+| Light, transparent, colorful, or uncertain | **Adapt for dark mode** |
+| Explicitly tagged `#no-invert` | **Keep uninverted** |
+| Explicitly tagged `#invert` | **Always adapt** |
 
-Already-dark images receive **no inversion and no dimming**. Other images kept uninverted can be softened with the configurable brightness cap.
+This deliberately simple rule avoids fragile attempts to distinguish photos, screenshots, scans, diagrams, and mixed-content images. A wrong photographic-category guess can produce unpredictable behavior; an already-dark check answers the important question directly: would inversion make this image brighter?
 
-**No tagging or manual setup is required.** Install the plugin, enable it, and smart detection works automatically whenever Obsidian switches to a dark theme.
+No tagging or setup is required. The filter is active only when Obsidian is using a dark theme, including **Adapt to system**.
 
-## More highlights
+## Highlights
 
 | | |
 | --- | --- |
-| **Smart detection** | Decides automatically whether each image needs to be adapted. |
-| **Theme-aware output** | Maps bright backgrounds toward your theme's background instead of producing a harsh, pitch-black negative. |
-| **Color preservation** | Uses a hue-preserving luminance flip to keep image colors recognizable. |
-| **Already-dark protection** | Leaves mostly opaque, already-dark images completely unchanged. |
-| **Per-image control** | Override inversion and dimming directly from an embed. |
-| **Works across Obsidian** | Supports reading view, Live Preview, Canvas, and hover popovers. |
-| **Safe by default** | Leaves an image unchanged whenever the classifier is unsure. |
+| **Immediate adaptation** | Images are inverted from their first paint; a decision never arrives after a bright flash. |
+| **Already-dark protection** | Mostly opaque images dominated by dark pixels remain uninverted. |
+| **Color preservation** | A hue-preserving luminance matrix keeps colors recognizable while reversing brightness. |
+| **Per-image control** | Override the automatic result directly from an embed. |
+| **Image presentation** | Control image opacity, radius, light blending, grids, and PDF appearance. |
+| **Lightweight operation** | Images are sampled once at thumbnail size; steady-state work is a static browser filter. |
+| **No vault bloat** | No processed images, caches, or duplicates are written into the vault. |
+| **Works across Obsidian** | Supports reading view, Live Preview, Canvas, hover popovers, and pop-out windows. |
 
 ## Installation
 
@@ -48,72 +48,89 @@ Already-dark images receive **no inversion and no dimming**. Other images kept u
 2. Select **Browse** and search for **Smart Dark Mode Images**.
 3. Select **Install**, then **Enable**.
 
-The plugin follows Obsidian's current appearance, including **Adapt to system**. It only applies image filters while the active theme is dark.
-
 ## Per-image control
 
-Automatic detection can be overridden from any embed:
+Override smart detection from an image source or alt text:
 
 ```md
 ![[image.png#no-invert]]
 ![[image.png#no-invert#no-dim]]
 ![[image.jpg#invert]]
-![alt](https://…/img.png#invert)
+![#no-invert](https://example.com/photo.png)
+![alt](https://example.com/diagram.png#invert)
 ```
 
-| Override alt | Result |
+| Tag | Result |
 | --- | --- |
-| `#invert` | Always invert the image. |
-| `#no-invert` | Keep the image uninverted and apply the brightness cap, unless it is already dark. |
-| `#no-dim` | Prevent dimming without changing the automatic inversion decision. |
-| `#no-invert#no-dim` | Apply neither inversion nor dimming. |
+| `#invert` | Always adapt the image in dark mode. |
+| `#no-invert` or `#keep` | Keep the image uninverted and at full opacity. |
+| `#no-dim` | Keep this image at full opacity; combine it with either automatic behavior or `#no-invert`. |
+| Existing exact `dark` alt/alias token | Treat this as an already-dark image: keep it uninverted and at full opacity. |
+| Existing `noclick` alt/alias token | Keep this image at full opacity without changing its inversion decision. |
 
-Override alts work in either the URL fragment or alt text. The community conventions `#invert_B` and `invert_dark` are recognized too.
+Tags are recognized in URL fragments and alt text. For compatibility with other snippets, existing exact bare `dark` and `noclick` alt/alias tokens are respected as already-dark and no-fade signals respectively; this plugin never adds or modifies alt text. Other bare English words such as “keep” and “invert” are intentionally ignored so an ordinary caption or filename cannot trigger an override. The community conventions `#invert_B` and `invert_dark` are also recognized, including bare in the alias position (`![[image.png|invert_B]]`). If conflicting inversion tags are present, the keep tag wins.
 
-## How smart detection works
+## How detection works
 
-Each image is classified once from a downscaled sample of at most 64 × 64 pixels. The rules run in this order:
+Each image is drawn into a temporary canvas no larger than 64 × 64 pixels. Transparent pixels below roughly 5% opacity are ignored. An image is considered already dark only when:
 
-| Image characteristics | Action | Why |
-| --- | :---: | --- |
-| Mostly opaque and already dark | **Keep unchanged** | The image already fits a dark theme; it is neither inverted nor dimmed. |
-| Dark content on transparency | **Invert** | Keeps the image visible against a dark background. |
-| Mostly light and unsaturated | **Invert** | Reduces glare from a bright image. |
-| Near-white background with flat regions | **Invert** | Adapts a clearly light image to the theme. |
-| Flat image with a light border and small palette | **Invert** | Indicates a high-confidence light composition. |
-| Saturated midtones or a rich palette | **Keep; optionally dim** | Preserves the image's natural colors while allowing a softer brightness. |
-| Strong light/dark contrast with a light background | **Invert** | Improves the image's dark-mode appearance. |
-| Ambiguous | **Keep unchanged** | The fail-safe choice avoids damaging the viewing experience. |
+- more than 90% of its sampled pixels are opaque; and
+- at least half of those opaque pixels have luminance below 40%.
 
-Cross-origin images that cannot be sampled directly are fetched through Obsidian's CORS-free `requestUrl`, classified in memory, and discarded.
+That image is kept uninverted and at full opacity. Every other readable image is adapted and uses the configured dark-mode opacity. An image that cannot be read or measured also uses the invert default, so a CORS failure cannot produce a bright flash. Rounded corners remain independent of this decision.
 
-Enable **Log decisions** in the plugin settings to inspect each verdict, matched rule, and pixel statistics in the developer console (`Ctrl+Shift+I`).
+Cross-origin images are fetched through Obsidian's `requestUrl` only when browser security prevents direct sampling. They are decoded at thumbnail size, discarded immediately, and their decisions persist across sessions in the plugin settings. Multiple embeds of one URL share the same in-flight request. Use **Re-analyze images in open notes** to clear those decisions and sample again.
 
-## How inversion works
+## How adaptation works
 
-- **Preserve colors** uses a hue-preserving luminance matrix. It avoids the uneven colors produced by the common `invert(1) hue-rotate(180deg)` trick.
-- **Match theme background** derives the inversion strength from `--background-primary`, so white lands close to the page color rather than pure black.
-- **Dim bright images** applies a configurable brightness cap to eligible images that remain uninverted. Already-dark and ambiguous images are never dimmed automatically.
-- Filters are disabled when printing or exporting to PDF.
+- Desktop uses a static SVG color matrix that flips luminance while retaining color identity.
+- iOS uses the GPU-friendly `invert(1) hue-rotate(180deg)` equivalent to avoid expensive SVG reference-filter rendering in WKWebView.
+- A `screen` blend over the active note background softens hard black rectangles and lets adapted images sit naturally on the theme surface.
+- Pending images keep their layout but remain hidden for the brief classification step. Small batches are stamped before the next paint, and decoded images are stamped immediately on load. The image is revealed only with its final keep/invert state, preventing both dark negatives and light originals from flashing white.
+- Inverted images fade to 70% by default in dark mode, transition over 0.25 seconds, and return to full opacity on hover. Automatically detected already-dark images and images with a `dark` alt token stay at full opacity; `#no-dim` and a `noclick` alt token opt out per image.
+- Filters, fading, and blending are disabled when printing or exporting a note to PDF.
 
-## Settings
+## Image grids
+
+The grid controls use the `img-grid` CSS class. Add it to a note:
+
+```yaml
+---
+cssclasses:
+  - img-grid
+---
+```
+
+Consecutive images are arranged in responsive columns. **Image grid crop** chooses between cropped cells and full-image containment; separate light and dark CSS colors can fill unused cell space.
+
+## PDF viewer
+
+PDF controls apply to Obsidian's built-in PDF viewer. They can remove page borders and shadows, invert black-on-white documents in dark mode, multiply-blend pages into light backgrounds, and adjust dark-mode page opacity. These viewer controls are separate from note-to-PDF export.
+
+## Settings and commands
+
+The classifier remains intentionally simple; the additional controls are presentation-only:
 
 | Setting | Default | What it controls |
 | --- | --- | --- |
-| **Mode** | Smart | Smart detection, all images, or off. |
-| **Match theme background** | On | Derives inversion strength from the active theme. |
-| **Inversion strength** | 90% | Manual strength when theme matching is disabled. |
-| **Preserve colors** | On | Hue-preserving flip instead of a plain negative. |
-| **Dim bright images** | 95% | Brightness cap for eligible images and `#no-invert`; already-dark images are excluded and `#no-dim` skips it. |
-| **Unreadable images** | Leave as-is | Fallback when pixels cannot be analyzed. |
-| **Light background threshold** | 58% | How light an unsaturated image must be before it is adapted. |
-| **Saturation threshold** | 18% | Saturated-pixel share at which an image is treated as colorful. |
-| **Log decisions** | Off | Logs verdicts, rules, and pixel statistics to the developer console. |
+| **Mode** | Smart | Smart protection, invert all untagged images, or off. |
+| **Image opacity in dark mode** | 0.7 | Fades inverted images; already-dark images stay opaque and hover restores full opacity. |
+| **Image radius** | 4 px | Rounded image corners. |
+| **Blend images in light mode** | Off | Multiply-blends images into the light background. |
+| **Image grid crop** | Crop to fit | Crop or contain images in `img-grid` cells. |
+| **Image grid backgrounds** | Transparent | Separate light/dark CSS colors behind grid images. |
+| **Per-image control** | — | Shows the available override tags. |
+| **PDF page style** | Seamless | Seamless pages or page shadows. |
+| **Invert PDFs in dark mode** | On | Adapts black-on-white PDFs. |
+| **Blend PDFs in light mode** | On | Multiply-blends pages into light backgrounds. |
+| **PDF opacity in dark mode** | 1.0 | Fades PDF pages in dark mode. |
 
 Two commands are available from the Command Palette:
 
-- **Toggle image inversion** — switch image effects off or back on. Assign a shortcut in **Settings → Hotkeys** if desired; none is assigned by default.
-- **Re-analyze images in open notes**
+- **Toggle image inversion** — switch effects off or restore the previously active mode.
+- **Re-analyze images in open notes** — discard cached decisions and sample open images again.
+
+The automatic classifier, invert-by-default rule, and presentation controls are maintained as part of this plugin.
 
 ## License
 

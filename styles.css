@@ -1,36 +1,239 @@
 /* Smart Dark Mode Images
  *
- * All effects are live CSS filters applied at render time while
- * body.theme-dark is present (the class Obsidian toggles from its
- * Appearance setting). Image files are never modified or duplicated.
- *
- * --dmi-strength is the inversion strength in percent; by default the
- * plugin derives it from the theme background so that inverted white
- * lands on the page color instead of pure black.
+ * Image and PDF presentation controls use lightweight CSS variables.
+ * Source files are never modified or duplicated.
  */
 
-/* Plain inversion (colors flip to their complements). */
-body.theme-dark.dmi-on img[data-dmi="invert"] {
-  filter: invert(calc(var(--dmi-strength, 90) * 1%));
+/* Per-document SVG filter definitions injected by the plugin. */
+.dmi-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-/* Hue-preserving path: #dmi-invert-nhue flips luminance while keeping hue.
- * The trailing weak invert() lifts black onto the theme background:
- * invert(k) maps 0 -> k and 1 -> 1-k. */
-body.theme-dark.dmi-on.dmi-hue img[data-dmi="invert"] {
-  filter: url(#dmi-invert-nhue)
-    invert(calc((100 - var(--dmi-strength, 90)) * 1%));
+/* -------------------------------------------------------------------------
+ * Image presentation
+ * ---------------------------------------------------------------------- */
+
+/* Fade only images the plugin inverts and restore full opacity on hover.
+ * Already-dark and dark-alt images stay opaque; #no-dim and noclick opt out. */
+body.theme-dark.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img:not(.emoji):not([data-dmi]) {
+  /* Preserve layout without exposing a light original or a wrong negative. */
+  visibility: hidden;
 }
 
-/* Soft highlight cap for bright images kept by smart detection or by a
- * no-invert override alt. A no-dim override stamps "keep" instead. */
-body.theme-dark.dmi-on img[data-dmi="dim"] {
-  filter: brightness(calc(var(--dmi-dim, 100) * 1%));
+body.theme-dark.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img[data-dmi="invert"]:not(.emoji):not([data-dmi-no-dim]) {
+  opacity: var(--dmi-image-opacity, 0.7);
+  transition: opacity 0.25s linear;
 }
 
-/* Never let inversion leak into print / PDF export. */
+body.theme-dark.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img[data-dmi="invert"]:not(.emoji):not([data-dmi-no-dim]):hover,
+body.theme-dark.dmi-on .print-preview img {
+  opacity: 1;
+  transition: opacity 0.25s linear;
+}
+
+body.theme-dark.dmi-on .print-preview img:not(.emoji) {
+  visibility: visible;
+}
+
+body.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img:not(.emoji) {
+  border-radius: var(--dmi-image-radius, 4px);
+}
+
+body.theme-light.dmi-on.dmi-image-blend-light
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img:not(.emoji) {
+  mix-blend-mode: multiply;
+}
+
+/* -------------------------------------------------------------------------
+ * Apply inversion only after the plugin stamps a final invert verdict.
+ * Pending images stay untouched so already-dark artwork cannot flash white.
+ * ---------------------------------------------------------------------- */
+
+body.theme-dark.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img[data-dmi="invert"]:not(.emoji) {
+  filter: url("#dmi-invert-hue");
+  mix-blend-mode: screen;
+}
+
+/* SVG reference filters can be CPU-heavy in WKWebView. */
+body.theme-dark.dmi-on.dmi-native-filter
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  img[data-dmi="invert"]:not(.emoji) {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Screen blending needs a stable dark backdrop. */
+body.theme-dark.dmi-on
+  :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+  :is(.internal-embed, .image-embed):has(
+    img[data-dmi="invert"]:not(.emoji)
+  ) {
+  background-color: var(--background-primary);
+}
+
+/* -------------------------------------------------------------------------
+ * Image grids. Enable per note with `cssclasses: img-grid`.
+ * ---------------------------------------------------------------------- */
+
+body.theme-light.dmi-on {
+  --dmi-image-grid-background: var(--dmi-image-grid-background-light, transparent);
+}
+
+body.theme-dark.dmi-on {
+  --dmi-image-grid-background: var(--dmi-image-grid-background-dark, transparent);
+}
+
+body.dmi-on .img-grid .image-embed.is-loaded {
+  display: inline-flex;
+  align-items: stretch;
+  line-height: 0;
+}
+
+body.dmi-on .img-grid .image-embed.is-loaded img {
+  background-color: var(--dmi-image-grid-background, transparent);
+}
+
+body.dmi-on .img-grid .image-embed.is-loaded img:active {
+  background-color: transparent;
+}
+
+body.dmi-on
+  .img-grid
+  .markdown-preview-section
+  > div:has(img)
+  :is(p:empty, img ~ br, .image-embed ~ br) {
+  display: none;
+}
+
+body.dmi-on
+  .img-grid
+  .markdown-preview-section
+  :is(div, p):has(> :is(.image-embed, img) ~ :is(.image-embed, img)),
+body.dmi-on .img-grid .markdown-preview-section > div:has(img) > p {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  column-gap: 0.5rem;
+  row-gap: 0;
+  margin-block: 0.5rem;
+}
+
+body.dmi-on .img-grid .markdown-preview-section > div:has(img) > p > br {
+  display: none;
+}
+
+body.dmi-on
+  .img-grid
+  .markdown-preview-section
+  :is(div, p):has(> :is(.image-embed, img) ~ :is(.image-embed, img))
+  > img {
+  align-self: stretch;
+  object-fit: var(--dmi-image-grid-fit, cover);
+}
+
+body.dmi-on
+  .img-grid
+  .markdown-preview-section
+  :is(div, p):has(> :is(.image-embed, img) ~ :is(.image-embed, img))
+  > .internal-embed
+  img {
+  align-self: center;
+  object-fit: var(--dmi-image-grid-fit, cover);
+}
+
+@media (max-width: 400pt) {
+  body.dmi-on
+    .img-grid
+    .markdown-preview-section
+    :is(div, p):has(> :is(.image-embed, img) ~ :is(.image-embed, img)),
+  body.dmi-on .img-grid .markdown-preview-section > div:has(img) > p {
+    column-gap: 0.25rem;
+    margin-block: 0.25rem;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * PDF controls.
+ * ---------------------------------------------------------------------- */
+
+body.dmi-on:not(.dmi-pdf-shadows) {
+  --pdf-shadow: none;
+  --pdf-thumbnail-shadow: none;
+}
+
+body.dmi-on:not(.dmi-pdf-shadows) :is(.pdf-viewer, .pdfViewer) .page {
+  border: 0;
+}
+
+body.dmi-on:not(.dmi-pdf-shadows) .pdf-sidebar-container .thumbnailSelectionRing {
+  padding: 0;
+}
+
+body.dmi-on:not(.dmi-pdf-shadows) .pdf-sidebar-container .thumbnail::after {
+  right: var(--size-4-2);
+  bottom: var(--size-4-2);
+}
+
+body.theme-dark.dmi-on.dmi-pdf-shadows {
+  --pdf-thumbnail-shadow: 0 0 1px 0 rgb(0 0 0 / 60%);
+  --pdf-shadow: 0 0 1px 0 rgb(0 0 0 / 60%);
+}
+
+body.theme-dark.dmi-on :is(.pdf-viewer, .pdfViewer) .canvasWrapper {
+  opacity: var(--dmi-pdf-dark-opacity, 1);
+}
+
+body.theme-dark.dmi-on.dmi-pdf-invert-dark
+  .workspace-leaf-content[data-type="pdf"]
+  :is(.pdf-viewer, .pdfViewer)
+  .canvasWrapper {
+  filter: invert(1) hue-rotate(180deg);
+  mix-blend-mode: screen;
+}
+
+body.theme-light.dmi-on.dmi-pdf-blend-light
+  .workspace-leaf-content[data-type="pdf"]
+  :is(.pdf-viewer, .pdfViewer)
+  .canvasWrapper {
+  mix-blend-mode: multiply;
+}
+
+/* Never leak note-image inversion or fading into print/PDF export. */
 @media print {
-  img[data-dmi] {
+  body.dmi-on
+    :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+    img:not(.emoji) {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  body.dmi-on
+    :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+    img[data-dmi="invert"]:not(.emoji) {
     filter: none !important;
+    mix-blend-mode: normal !important;
+  }
+
+  body.dmi-on
+    :is(.markdown-preview-view, .markdown-source-view, .canvas-wrapper, .hover-popover)
+    :is(.internal-embed, .image-embed):has(
+      img[data-dmi="invert"]:not(.emoji)
+    ) {
+    background-color: transparent !important;
   }
 }
