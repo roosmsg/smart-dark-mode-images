@@ -65,10 +65,8 @@ Override smart detection from an image source or alt text:
 | `#invert` | Always adapt the image in dark mode. |
 | `#no-invert` or `#keep` | Keep the image uninverted and at full opacity. |
 | `#no-dim` | Keep this image at full opacity; combine it with either automatic behavior or `#no-invert`. |
-| Existing exact `dark` alt/alias token | Treat this as an already-dark image: keep it uninverted and at full opacity. |
-| Existing `noclick` alt/alias token | Keep this image at full opacity without changing its inversion decision. |
 
-Tags are recognized in URL fragments and alt text. For compatibility with other snippets, existing exact bare `dark` and `noclick` alt/alias tokens are respected as already-dark and no-fade signals respectively; this plugin never adds or modifies alt text. Other bare English words such as “keep” and “invert” are intentionally ignored so an ordinary caption or filename cannot trigger an override. The community conventions `#invert_B` and `invert_dark` are also recognized, including bare in the alias position (`![[image.png|invert_B]]`). If conflicting inversion tags are present, the keep tag wins.
+Tags are recognized in URL fragments and alt text. Bare English words such as “keep” and “invert” are intentionally ignored so an ordinary caption or filename cannot trigger an override. The community conventions `#invert_B` and `invert_dark` are also recognized, including bare in the alias position (`![[image.png|invert_B]]`). If conflicting inversion tags are present, the keep tag wins.
 
 ## How detection works
 
@@ -87,7 +85,7 @@ Cross-origin images are fetched through Obsidian's `requestUrl` only when browse
 - iOS uses the GPU-friendly `invert(1) hue-rotate(180deg)` equivalent to avoid expensive SVG reference-filter rendering in WKWebView.
 - A `screen` blend over the active note background softens hard black rectangles and lets adapted images sit naturally on the theme surface.
 - Pending images keep their layout but remain hidden for the brief classification step. Small batches are stamped before the next paint, and decoded images are stamped immediately on load. The image is revealed only with its final keep/invert state, preventing both dark negatives and light originals from flashing white.
-- Inverted images fade to 70% by default in dark mode, transition over 0.25 seconds, and return to full opacity on hover. Automatically detected already-dark images and images with a `dark` alt token stay at full opacity; `#no-dim` and a `noclick` alt token opt out per image.
+- Inverted images fade to 70% by default in dark mode, transition over 0.25 seconds, and return to full opacity on hover. Automatically detected already-dark images stay at full opacity, and `#no-dim` opts out per image.
 - Filters, fading, and blending are disabled when printing or exporting a note to PDF.
 
 ## Image grids
